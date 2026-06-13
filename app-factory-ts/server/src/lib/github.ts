@@ -13,7 +13,6 @@ function headers(): Record<string, string> {
 }
 
 async function ghFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const fetch = (await import('node-fetch')).default;
   const res = await fetch(`${BASE}${path}`, { ...init, headers: { ...headers(), ...(init?.headers as Record<string, string> ?? {}) } });
   if (!res.ok) {
     const body = await res.text();
@@ -88,8 +87,7 @@ export async function downloadArtifact(runId: string): Promise<Buffer> {
   const artifact = artifacts.artifacts.find((a) => a.name === 'app-release-bundle');
   if (!artifact) throw new Error('No artifact named "app-release-bundle" found');
 
-  const fetchFn = (await import('node-fetch')).default;
-  const res = await fetchFn(
+  const res = await fetch(
     `${BASE}/repos/${repoOwner}/${repoName}/actions/artifacts/${artifact.id}/zip`,
     { headers: headers(), redirect: 'follow' }
   );
