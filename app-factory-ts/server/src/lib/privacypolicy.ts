@@ -1,0 +1,215 @@
+// Privacy policy generated via Node.js template — NOT Claude (avoids token truncation)
+
+export interface PolicyOptions {
+  appName: string;
+  packageId: string;
+  features: string[];
+  primaryColor: string;
+  policyUrl: string;
+}
+
+export function generatePrivacyPolicyHTML(opts: PolicyOptions): string {
+  const { appName, packageId, features, primaryColor, policyUrl } = opts;
+  const hasAds = features.includes('google-ads');
+  const hasFirebase = features.includes('firebase');
+  const hasIAP = features.includes('iap');
+  const hasPushNotifications = features.includes('push-notifications');
+  const year = new Date().getFullYear();
+
+  const adSection = hasAds ? `
+    <h2>Advertising (Google AdMob)</h2>
+    <p>We use Google AdMob to show advertisements. AdMob may collect:</p>
+    <ul>
+      <li>Advertising ID (GAID)</li>
+      <li>Device identifiers</li>
+      <li>App usage data for ad targeting</li>
+    </ul>
+    <p>You can opt out of personalized ads in your device settings (Google Settings → Ads → Opt out of Ads Personalization).
+    AdMob's privacy policy: <a href="https://policies.google.com/privacy">https://policies.google.com/privacy</a></p>
+    <p>We implement the Google User Messaging Platform (UMP) for GDPR consent management in the EU/EEA.</p>
+  ` : '';
+
+  const firebaseSection = hasFirebase ? `
+    <h2>Analytics (Firebase)</h2>
+    <p>We use Firebase Analytics to understand how users interact with our app. Firebase may collect:</p>
+    <ul>
+      <li>App events and screen views</li>
+      <li>Device information (model, OS version)</li>
+      <li>Session duration and engagement metrics</li>
+    </ul>
+    <p>This data is anonymized and aggregated. Firebase privacy policy: <a href="https://firebase.google.com/support/privacy">https://firebase.google.com/support/privacy</a></p>
+    <p>You can disable analytics collection in app settings.</p>
+  ` : '';
+
+  const iapSection = hasIAP ? `
+    <h2>In-App Purchases</h2>
+    <p>Premium features are available via Google Play in-app purchases. We do NOT store your payment information — all transactions are processed securely by Google Play.</p>
+    <p>Purchase records are retained for customer support and refund processing.</p>
+  ` : '';
+
+  const pushSection = hasPushNotifications ? `
+    <h2>Push Notifications</h2>
+    <p>With your permission, we may send push notifications. You can disable them at any time in your device settings or within the app.</p>
+  ` : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — ${appName}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.7; color: #333; background: #f9f9f9; }
+    .container { max-width: 800px; margin: 0 auto; padding: 40px 24px; background: #fff; }
+    header { border-bottom: 3px solid ${primaryColor}; padding-bottom: 24px; margin-bottom: 32px; }
+    h1 { color: ${primaryColor}; font-size: 2rem; margin-bottom: 8px; }
+    .subtitle { color: #666; font-size: 0.95rem; }
+    h2 { color: ${primaryColor}; font-size: 1.2rem; margin: 28px 0 12px; border-left: 4px solid ${primaryColor}; padding-left: 12px; }
+    p { margin-bottom: 12px; }
+    ul { margin: 8px 0 12px 24px; }
+    li { margin-bottom: 4px; }
+    a { color: ${primaryColor}; }
+    .rights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 16px 0; }
+    .right-card { background: #f0f0ff; border-radius: 8px; padding: 16px; border-left: 3px solid ${primaryColor}; }
+    .right-card strong { display: block; margin-bottom: 4px; color: ${primaryColor}; }
+    .coppa-box { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin: 16px 0; }
+    footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid #eee; color: #888; font-size: 0.85rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Privacy Policy</h1>
+      <p class="subtitle">${appName} &nbsp;|&nbsp; Package: ${packageId} &nbsp;|&nbsp; Last updated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+    </header>
+
+    <h2>Introduction</h2>
+    <p>Welcome to ${appName}. We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, and safeguard your information when you use our mobile application.</p>
+    <p>By using ${appName}, you agree to the collection and use of information in accordance with this policy.</p>
+
+    <h2>Information We Collect</h2>
+    <p>We collect information you provide directly to us and information collected automatically when you use our app:</p>
+    <ul>
+      <li><strong>Usage data:</strong> App interactions, features used, and session information</li>
+      <li><strong>Device data:</strong> Device type, operating system version, and unique device identifiers</li>
+      <li><strong>Performance data:</strong> Crash reports and error logs to improve app stability</li>
+      ${hasAds ? '<li><strong>Advertising data:</strong> Advertising ID for personalized ads (with consent)</li>' : ''}
+    </ul>
+
+    ${adSection}
+    ${firebaseSection}
+    ${iapSection}
+    ${pushSection}
+
+    <h2>How We Use Your Information</h2>
+    <ul>
+      <li>To provide, maintain, and improve ${appName}</li>
+      <li>To detect, prevent, and address technical issues</li>
+      <li>To understand usage patterns and improve user experience</li>
+      ${hasAds ? '<li>To display relevant advertisements (with consent where required)</li>' : ''}
+    </ul>
+
+    <h2>Data Sharing</h2>
+    <p>We do not sell your personal data. We may share data with:</p>
+    <ul>
+      ${hasAds ? '<li><strong>Google AdMob</strong> — for advertising</li>' : ''}
+      ${hasFirebase ? '<li><strong>Google Firebase</strong> — for analytics and app infrastructure</li>' : ''}
+      <li><strong>Crash reporting services</strong> — for app stability</li>
+    </ul>
+    <p>All third-party services are bound by their own privacy policies and applicable data protection laws.</p>
+
+    <h2>Data Retention</h2>
+    <p>We retain usage data for a maximum of 90 days. Aggregated, anonymized analytics may be retained longer for trend analysis. You can request deletion at any time (see Your Rights section).</p>
+
+    <h2>Your GDPR Rights (EU/EEA Users)</h2>
+    <div class="rights-grid">
+      <div class="right-card"><strong>Right to Access</strong>Request a copy of your personal data.</div>
+      <div class="right-card"><strong>Right to Rectification</strong>Correct inaccurate personal data.</div>
+      <div class="right-card"><strong>Right to Erasure</strong>Request deletion of your personal data.</div>
+      <div class="right-card"><strong>Right to Restrict</strong>Limit how we process your data.</div>
+      <div class="right-card"><strong>Right to Portability</strong>Receive your data in a portable format.</div>
+      <div class="right-card"><strong>Right to Object</strong>Object to processing based on legitimate interests.</div>
+      <div class="right-card"><strong>Right to Withdraw Consent</strong>Withdraw consent at any time.</div>
+      <div class="right-card"><strong>Right to Lodge a Complaint</strong>File a complaint with your supervisory authority.</div>
+    </div>
+
+    <h2>Children's Privacy (COPPA)</h2>
+    <div class="coppa-box">
+      <strong>⚠️ This app is not directed to children under 13.</strong>
+      <p style="margin-top:8px">We do not knowingly collect personal information from children under 13. If you believe a child has provided us personal information, please contact us immediately and we will delete that information.</p>
+    </div>
+
+    <h2>Data Security</h2>
+    <p>We implement industry-standard security measures to protect your data. However, no method of transmission over the internet or electronic storage is 100% secure. We strive to use commercially acceptable means to protect your personal information.</p>
+
+    <h2>Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time. We will notify you of any changes by updating the "Last updated" date at the top of this policy. Continued use of ${appName} after changes constitutes acceptance of the new policy.</p>
+
+    <h2>Contact Us</h2>
+    <p>If you have questions about this Privacy Policy or wish to exercise your rights, please contact us:</p>
+    <ul>
+      <li>Email: privacy@${packageId.split('.').slice(0, 2).join('.')}.com</li>
+      <li>Policy URL: <a href="${policyUrl}">${policyUrl}</a></li>
+    </ul>
+
+    <footer>
+      <p>© ${year} ${appName}. All rights reserved.</p>
+      <p>Package: ${packageId}</p>
+    </footer>
+  </div>
+</body>
+</html>`;
+}
+
+export function generateDataSafetyJSON(opts: PolicyOptions): object {
+  const { features, policyUrl } = opts;
+  const hasAds = features.includes('google-ads');
+  const hasFirebase = features.includes('firebase');
+  const hasIAP = features.includes('iap');
+
+  const entries = [
+    {
+      dataType: 'App interactions',
+      purposes: ['App functionality', 'Analytics'],
+      retention: '90 days or less',
+    },
+    {
+      dataType: 'Crash logs',
+      purposes: ['App functionality'],
+      retention: '90 days or less',
+    },
+  ];
+
+  if (hasAds) {
+    entries.push({
+      dataType: 'Advertising IDs',
+      purposes: ['Advertising'],
+      retention: '90 days or less',
+    });
+  }
+
+  if (hasFirebase) {
+    entries.push({
+      dataType: 'Analytics data',
+      purposes: ['Analytics'],
+      retention: '90 days or less',
+    });
+  }
+
+  if (hasIAP) {
+    entries.push({
+      dataType: 'Purchase history',
+      purposes: ['App functionality'],
+      retention: 'Until account deletion',
+    });
+  }
+
+  return {
+    privacyPolicyUrl: policyUrl,
+    dataCollected: entries,
+    dataSharedWithThirdParties: hasAds || hasFirebase,
+    encryptedInTransit: true,
+    userCanRequestDeletion: true,
+  };
+}
