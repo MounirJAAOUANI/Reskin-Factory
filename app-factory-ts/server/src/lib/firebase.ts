@@ -55,7 +55,6 @@ export async function publishRemoteConfig(
       parameters,
       parameterGroups: existing.parameterGroups ?? {},
       conditions: existing.conditions ?? [],
-      version: existing.version,
     })
   );
 
