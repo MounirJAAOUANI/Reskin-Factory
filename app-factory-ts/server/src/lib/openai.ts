@@ -44,14 +44,19 @@ export async function generateLogo(
     prompt: imagePrompt,
     n: 1,
     size: '1024x1024',
-    response_format: 'b64_json',
   });
 
-  const b64 = (response.data as Array<{ b64_json?: string }> | undefined)?.[0]?.b64_json;
-  if (!b64) throw new Error('OpenAI returned no image data');
+  const url = response.data?.[0]?.url;
+  if (!url) throw new Error('OpenAI returned no image URL');
+
+  sse.log('⬇️ Downloading generated image...', 'info');
+  const imgRes = await fetch(url);
+  if (!imgRes.ok) throw new Error(`Failed to download image: ${imgRes.status}`);
+  const arrayBuffer = await imgRes.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const b64 = buffer.toString('base64');
 
   sse.log('🔧 Resizing logo to multiple formats...', 'info');
-  const buffer = Buffer.from(b64, 'base64');
 
   const [f512, f192, f48] = await Promise.all([
     resizeToBase64(buffer, 512),
