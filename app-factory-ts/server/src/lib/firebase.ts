@@ -35,15 +35,29 @@ export async function publishRemoteConfig(
   const app = getApp();
   const remoteConfig = admin.remoteConfig(app);
 
-  const template = await remoteConfig.getTemplate();
+  // Fetch existing template to get its etag, then build a clean parameter set
+  const existing = await remoteConfig.getTemplate();
 
-  // Set each param
+  const parameters: admin.remoteConfig.RemoteConfigTemplate['parameters'] = {
+    ...existing.parameters,
+  };
+
   for (const [key, value] of Object.entries(params)) {
-    template.parameters[key] = {
-      defaultValue: { value },
+    parameters[key] = {
+      defaultValue: { value: String(value) },
       description: `Auto-generated for ${packageId}`,
+      valueType: 'STRING',
     };
   }
+
+  const template = remoteConfig.createTemplateFromJSON(
+    JSON.stringify({
+      parameters,
+      parameterGroups: existing.parameterGroups ?? {},
+      conditions: existing.conditions ?? [],
+      version: existing.version,
+    })
+  );
 
   const validated = await remoteConfig.validateTemplate(template);
   await remoteConfig.publishTemplate(validated);
