@@ -1,19 +1,18 @@
-import admin from 'firebase-admin';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getRemoteConfig } from 'firebase-admin/remote-config';
 import { config, isDev } from '../config.js';
 
-let initialized = false;
-
-function getApp(): admin.app.App {
-  if (!initialized) {
-    const credential = admin.credential.cert({
-      projectId: config.firebase.projectId,
-      privateKey: config.firebase.privateKey,
-      clientEmail: config.firebase.clientEmail,
+function getApp() {
+  if (getApps().length === 0) {
+    initializeApp({
+      credential: cert({
+        projectId: config.firebase.projectId,
+        privateKey: config.firebase.privateKey,
+        clientEmail: config.firebase.clientEmail,
+      }),
     });
-    admin.initializeApp({ credential });
-    initialized = true;
   }
-  return admin.app();
+  return getApps()[0]!;
 }
 
 export interface RemoteConfigParams {
@@ -32,41 +31,34 @@ export async function publishRemoteConfig(
     return;
   }
 
-  const app = getApp();
-  const remoteConfig = admin.remoteConfig(app);
+  const rc = getRemoteConfig(getApp());
 
-  // Fetch existing template to get its etag, then build a clean parameter set
-  const existing = await remoteConfig.getTemplate();
+  const existing = await rc.getTemplate();
 
-  const parameters: admin.remoteConfig.RemoteConfigTemplate['parameters'] = {
-    ...existing.parameters,
+  const merged = {
+    parameters: { ...existing.parameters } as Record<string, object>,
+    parameterGroups: existing.parameterGroups ?? {},
+    conditions: existing.conditions ?? [],
   };
 
   for (const [key, value] of Object.entries(params)) {
-    parameters[key] = {
+    merged.parameters[key] = {
       defaultValue: { value: String(value) },
       description: `Auto-generated for ${packageId}`,
       valueType: 'STRING',
     };
   }
 
-  const template = remoteConfig.createTemplateFromJSON(
-    JSON.stringify({
-      parameters,
-      parameterGroups: existing.parameterGroups ?? {},
-      conditions: existing.conditions ?? [],
-    })
-  );
-
-  const validated = await remoteConfig.validateTemplate(template);
-  await remoteConfig.publishTemplate(validated);
+  const template = rc.createTemplateFromJSON(JSON.stringify(merged));
+  const validated = await rc.validateTemplate(template);
+  await rc.publishTemplate(validated);
   console.log(`[Firebase] Remote Config published for ${packageId}`);
 }
 
 export function buildRemoteConfigParams(packageId: string): RemoteConfigParams {
   return {
-    admob_banner_id: 'ca-app-pub-3940256099942544/6300978111', // Test banner ID
-    admob_interstitial_id: 'ca-app-pub-3940256099942544/1033173712', // Test interstitial ID
+    admob_banner_id: 'ca-app-pub-3940256099942544/6300978111',
+    admob_interstitial_id: 'ca-app-pub-3940256099942544/1033173712',
     premium_price_usd: '2.99',
     feature_flags: JSON.stringify({
       show_ads: true,
