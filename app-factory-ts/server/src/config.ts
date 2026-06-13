@@ -27,6 +27,8 @@ export const config = {
     repoName: optional('GITHUB_REPO_NAME'),
   },
 
+  vercelProjectUrl: optional('VERCEL_PROJECT_URL', 'https://reskin-factory.vercel.app'),
+
   googlePlay: {
     serviceAccount: optional('GOOGLE_PLAY_SERVICE_ACCOUNT'),
     packageId: optional('GOOGLE_PLAY_PACKAGE_ID'),

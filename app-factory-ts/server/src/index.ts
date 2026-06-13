@@ -186,7 +186,7 @@ app.post('/api/agents/compliance', checkPassword, async (req, res) => {
     const { appName, packageId, features, primaryColor } = req.body as ComplianceInput;
     sse.log(`📄 Generating privacy policy for "${appName}"...`, 'info');
 
-    const placeholderUrl = `https://${config.github.repoOwner}.github.io/${config.github.repoName}/privacy-policy`;
+    const placeholderUrl = `${config.vercelProjectUrl}/privacy-policy`;
 
     const html = generatePrivacyPolicyHTML({
       appName,

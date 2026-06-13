@@ -104,11 +104,11 @@ export async function publishPrivacyPolicy(
 ): Promise<string> {
   if (isDev) {
     sse.log('📄 [DEV] Simulating privacy policy publish', 'info');
-    return `https://${config.github.repoOwner}.github.io/${config.github.repoName}/privacy-policy`;
+    return `${config.vercelProjectUrl}/privacy-policy`;
   }
 
   const { repoOwner, repoName } = config.github;
-  const filePath = 'privacy-policy.html';
+  const filePath = 'policies/privacy-policy.html';
   const branch = 'main';
 
   // Check if file already exists (to get its SHA for update)
@@ -122,7 +122,7 @@ export async function publishPrivacyPolicy(
     // File doesn't exist yet
   }
 
-  sse.log(`📄 Publishing privacy policy to GitHub Pages...`, 'info');
+  sse.log(`📄 Publishing privacy policy to Vercel (via GitHub)...`, 'info');
   await ghFetch(`/repos/${repoOwner}/${repoName}/contents/${filePath}`, {
     method: 'PUT',
     body: JSON.stringify({
@@ -133,7 +133,7 @@ export async function publishPrivacyPolicy(
     }),
   });
 
-  const policyUrl = `https://${repoOwner}.github.io/${repoName}/privacy-policy`;
+  const policyUrl = `${config.vercelProjectUrl}/privacy-policy`;
   sse.log(`✅ Privacy policy published at ${policyUrl}`, 'success');
   return policyUrl;
 }

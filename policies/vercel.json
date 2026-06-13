@@ -1,0 +1,13 @@
+{
+  "rewrites": [
+    { "source": "/privacy-policy", "destination": "/privacy-policy.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    }
+  ]
+}
