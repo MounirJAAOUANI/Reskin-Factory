@@ -226,11 +226,16 @@ app.post('/api/agents/build-deploy', checkPassword, (req, res) => {
     try {
       await job.log('🔨 Starting build & deploy pipeline...', 'info');
 
-      // Configure Firebase Remote Config
+      // Configure Firebase Remote Config (non-blocking)
       await job.log('🔥 Configuring Firebase Remote Config...', 'info');
-      const rcParams = buildRemoteConfigParams(payload.packageId);
-      await publishRemoteConfig(rcParams, payload.packageId);
-      await job.log('✅ Firebase Remote Config updated', 'success');
+      try {
+        const rcParams = buildRemoteConfigParams(payload.packageId);
+        await publishRemoteConfig(rcParams, payload.packageId);
+        await job.log('✅ Firebase Remote Config updated', 'success');
+      } catch (fbErr) {
+        const msg = fbErr instanceof Error ? `${fbErr.message}\n${fbErr.stack ?? ''}` : String(fbErr);
+        await job.log(`⚠️ Firebase Remote Config skipped: ${msg}`, 'warn');
+      }
 
       // Trigger GitHub Actions build
       await job.log('🚀 Triggering GitHub Actions workflow...', 'info');
