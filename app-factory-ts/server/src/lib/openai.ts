@@ -46,14 +46,20 @@ export async function generateLogo(
     size: '1024x1024',
   });
 
-  const url = response.data?.[0]?.url;
-  if (!url) throw new Error('OpenAI returned no image URL');
+  const item = response.data?.[0] as { b64_json?: string; url?: string } | undefined;
+  let buffer: Buffer;
 
-  sse.log('⬇️ Downloading generated image...', 'info');
-  const imgRes = await fetch(url);
-  if (!imgRes.ok) throw new Error(`Failed to download image: ${imgRes.status}`);
-  const arrayBuffer = await imgRes.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  if (item?.b64_json) {
+    buffer = Buffer.from(item.b64_json, 'base64');
+  } else if (item?.url) {
+    sse.log('⬇️ Downloading generated image...', 'info');
+    const imgRes = await fetch(item.url);
+    if (!imgRes.ok) throw new Error(`Failed to download image: ${imgRes.status}`);
+    buffer = Buffer.from(await imgRes.arrayBuffer());
+  } else {
+    throw new Error('OpenAI returned no image data');
+  }
+
   const b64 = buffer.toString('base64');
 
   sse.log('🔧 Resizing logo to multiple formats...', 'info');
