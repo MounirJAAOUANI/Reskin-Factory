@@ -286,12 +286,35 @@ app.get('/api/jobs/:jobId', async (req, res) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
+process.on('SIGTERM', () => {
+  console.log('[SIGNAL] SIGTERM received — Railway is stopping the container');
+  process.exit(0);
+});
+process.on('SIGINT', () => {
+  console.log('[SIGNAL] SIGINT received');
+  process.exit(0);
+});
+
 async function main(): Promise<void> {
+  console.log('[startup] Initializing Redis...');
   await initRedis();
-  app.listen(config.port, () => {
-    console.log(`🚀 App Factory server running on http://localhost:${config.port}`);
+  console.log('[startup] Redis done. Starting HTTP server...');
+
+  const server = app.listen(config.port, '0.0.0.0', () => {
+    console.log(`🚀 App Factory server running on http://0.0.0.0:${config.port}`);
     console.log(`   Mode: ${config.modeEnv} | Node: ${process.env['NODE_ENV'] ?? 'development'}`);
+    console.log('[startup] Server is ready and accepting connections');
   });
+
+  server.on('error', (err) => {
+    console.error('[FATAL] HTTP server error:', err);
+  });
+
+  // Keep event loop alive
+  const keepalive = setInterval(() => {
+    console.log(`[heartbeat] alive — uptime: ${Math.round(process.uptime())}s`);
+  }, 30_000);
+  keepalive.unref(); // don't prevent natural exit if everything else closes
 }
 
 void main();
