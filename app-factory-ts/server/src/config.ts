@@ -25,7 +25,6 @@ export const config = {
     token: optional('GITHUB_TOKEN'),
     repoOwner: optional('GITHUB_REPO_OWNER'),
     repoName: optional('GITHUB_REPO_NAME'),
-    pagesRepo: optional('GITHUB_PAGES_REPO'),
   },
 
   googlePlay: {

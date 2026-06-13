@@ -47,7 +47,7 @@ export async function generateLogo(
     response_format: 'b64_json',
   });
 
-  const b64 = response.data[0]?.b64_json;
+  const b64 = (response.data as Array<{ b64_json?: string }> | undefined)?.[0]?.b64_json;
   if (!b64) throw new Error('OpenAI returned no image data');
 
   sse.log('🔧 Resizing logo to multiple formats...', 'info');

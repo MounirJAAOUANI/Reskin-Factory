@@ -168,7 +168,7 @@ export async function captureScreenshots(
       await page.setViewport({ width: VIEWPORT_W, height: VIEWPORT_H });
 
       const html = generateScreenHTML(screenName, i, appName, architecture.theme);
-      await page.setContent(html, { waitUntil: 'networkidle0' });
+      await page.setContent(html, { waitUntil: 'domcontentloaded' });
 
       const buffer = await page.screenshot({ type: 'png' });
       await page.close();

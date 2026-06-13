@@ -38,7 +38,7 @@ export async function scrapeCompetitors(
     num: 50,
     lang: 'en',
     country: 'us',
-  })) as GPlayApp[];
+  })) as unknown as GPlayApp[];
 
   sse.log(`📊 Found ${results.length} apps, analyzing top 10...`, 'info');
 
