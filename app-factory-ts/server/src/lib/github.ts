@@ -42,9 +42,15 @@ export async function triggerBuildWorkflow(
   const { repoOwner, repoName } = config.github;
   sse.log(`🚀 Triggering GitHub Actions workflow on ${repoOwner}/${repoName}...`, 'info');
 
+  const encodedInputs = {
+    ...inputs,
+    dart_code: Buffer.from(inputs.dart_code).toString('base64'),
+    pubspec_yaml: Buffer.from(inputs.pubspec_yaml).toString('base64'),
+  };
+
   await ghFetch(`/repos/${repoOwner}/${repoName}/actions/workflows/build.yml/dispatches`, {
     method: 'POST',
-    body: JSON.stringify({ ref: 'main', inputs }),
+    body: JSON.stringify({ ref: 'main', inputs: encodedInputs }),
   });
 
   // Wait 3s then fetch the latest run
