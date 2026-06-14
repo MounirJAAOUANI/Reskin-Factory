@@ -234,7 +234,7 @@ app.post('/api/agents/build-deploy', checkPassword, (req, res) => {
         await job.log('✅ Firebase Remote Config updated', 'success');
       } catch (fbErr) {
         const msg = fbErr instanceof Error ? `${fbErr.message}\n${fbErr.stack ?? ''}` : String(fbErr);
-        await job.log(`⚠️ Firebase Remote Config skipped: ${msg}`, 'warn');
+        await job.log(`⚠️ Firebase Remote Config skipped: ${msg}`, 'error');
       }
 
       // Trigger GitHub Actions build
