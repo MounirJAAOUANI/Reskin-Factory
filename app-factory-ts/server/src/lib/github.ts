@@ -21,6 +21,36 @@ async function ghFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+async function upsertRepoFile(
+  repoOwner: string,
+  repoName: string,
+  filePath: string,
+  content: string,
+  commitMessage: string,
+  branch = 'main'
+): Promise<void> {
+  let sha: string | undefined;
+  try {
+    const existing = await ghFetch<{ sha: string }>(
+      `/repos/${repoOwner}/${repoName}/contents/${filePath}?ref=${branch}`
+    );
+    sha = existing.sha;
+  } catch {
+    // File doesn't exist yet
+  }
+  await ghFetch(`/repos/${repoOwner}/${repoName}/contents/${filePath}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      message: commitMessage,
+      content: Buffer.from(content).toString('base64'),
+      branch,
+      ...(sha ? { sha } : {}),
+    }),
+  });
+}
+
 // ─── Trigger GitHub Actions workflow ─────────────────────────────────────────
 
 export interface WorkflowDispatchInputs {
@@ -40,17 +70,32 @@ export async function triggerBuildWorkflow(
   }
 
   const { repoOwner, repoName } = config.github;
+
+  // Commit source files to repo so the workflow can read them (avoids input size limits)
+  sse.log('📦 Uploading source files to repository...', 'info');
+  await upsertRepoFile(
+    repoOwner, repoName,
+    'build-input/main.dart',
+    inputs.dart_code,
+    `build: update dart source for ${inputs.app_name}`
+  );
+  await upsertRepoFile(
+    repoOwner, repoName,
+    'build-input/pubspec.yaml',
+    inputs.pubspec_yaml,
+    `build: update pubspec for ${inputs.app_name}`
+  );
+
   sse.log(`🚀 Triggering GitHub Actions workflow on ${repoOwner}/${repoName}...`, 'info');
-
-  const encodedInputs = {
-    ...inputs,
-    dart_code: Buffer.from(inputs.dart_code).toString('base64'),
-    pubspec_yaml: Buffer.from(inputs.pubspec_yaml).toString('base64'),
-  };
-
   await ghFetch(`/repos/${repoOwner}/${repoName}/actions/workflows/build.yml/dispatches`, {
     method: 'POST',
-    body: JSON.stringify({ ref: 'main', inputs: encodedInputs }),
+    body: JSON.stringify({
+      ref: 'main',
+      inputs: {
+        app_name: inputs.app_name,
+        package_id: inputs.package_id,
+      },
+    }),
   });
 
   // Wait 3s then fetch the latest run
@@ -114,30 +159,14 @@ export async function publishPrivacyPolicy(
   }
 
   const { repoOwner, repoName } = config.github;
-  const filePath = 'policies/privacy-policy.html';
-  const branch = 'main';
-
-  // Check if file already exists (to get its SHA for update)
-  let sha: string | undefined;
-  try {
-    const existing = await ghFetch<{ sha: string }>(
-      `/repos/${repoOwner}/${repoName}/contents/${filePath}?ref=${branch}`
-    );
-    sha = existing.sha;
-  } catch {
-    // File doesn't exist yet
-  }
 
   sse.log(`📄 Publishing privacy policy to Vercel (via GitHub)...`, 'info');
-  await ghFetch(`/repos/${repoOwner}/${repoName}/contents/${filePath}`, {
-    method: 'PUT',
-    body: JSON.stringify({
-      message: `docs: Update privacy policy for ${appName}`,
-      content: Buffer.from(html).toString('base64'),
-      branch,
-      ...(sha ? { sha } : {}),
-    }),
-  });
+  await upsertRepoFile(
+    repoOwner, repoName,
+    'policies/privacy-policy.html',
+    html,
+    `docs: Update privacy policy for ${appName}`
+  );
 
   const policyUrl = `${config.vercelProjectUrl}/privacy-policy`;
   sse.log(`✅ Privacy policy published at ${policyUrl}`, 'success');

@@ -9,12 +9,6 @@ on:
       package_id:
         description: 'Package ID (e.g. com.appfactory.habitflow)'
         required: true
-      dart_code:
-        description: 'Contents of lib/main.dart (base64-encoded)'
-        required: true
-      pubspec_yaml:
-        description: 'Contents of pubspec.yaml (base64-encoded)'
-        required: true
 
 jobs:
   build:
@@ -41,25 +35,23 @@ jobs:
       - name: Create Flutter project structure
         run: |
           flutter create --org "${PACKAGE_ID%.*}" --project-name "${APP_NAME,,}" temp_project
-          cd temp_project
-          mkdir -p lib
+          mkdir -p temp_project/lib
         env:
           APP_NAME: ${{ inputs.app_name }}
           PACKAGE_ID: ${{ inputs.package_id }}
 
-      - name: Write source files
+      - name: Write source files from repo
         run: |
-          cd temp_project
-          echo "${{ inputs.dart_code }}" | base64 -d > lib/main.dart
-          echo "${{ inputs.pubspec_yaml }}" | base64 -d > pubspec.yaml
+          cp build-input/main.dart temp_project/lib/main.dart
+          cp build-input/pubspec.yaml temp_project/pubspec.yaml
 
       - name: Set package ID in Android manifest
         run: |
-          cd temp_project
-          # Update applicationId in build.gradle
-          sed -i "s/applicationId \".*\"/applicationId \"${{ inputs.package_id }}\"/" android/app/build.gradle
-          # Update namespace
-          sed -i "s/namespace \".*\"/namespace \"${{ inputs.package_id }}\"/" android/app/build.gradle
+          sed -i "s/applicationId \".*\"/applicationId \"${{ inputs.package_id }}\"/" temp_project/android/app/build.gradle
+          sed -i "s/namespace \".*\"/namespace \"${{ inputs.package_id }}\"/" temp_project/android/app/build.gradle
+          # New Gradle DSL uses = assignment
+          sed -i "s/applicationId = \".*\"/applicationId = \"${{ inputs.package_id }}\"/" temp_project/android/app/build.gradle
+          sed -i "s/namespace = \".*\"/namespace = \"${{ inputs.package_id }}\"/" temp_project/android/app/build.gradle
 
       - name: Flutter pub get
         run: |
@@ -79,7 +71,7 @@ jobs:
       - name: Configure signing in build.gradle
         run: |
           python3 << 'EOF'
-          import re, sys
+          import re
 
           path = 'temp_project/android/app/build.gradle'
           gradle = open(path).read()

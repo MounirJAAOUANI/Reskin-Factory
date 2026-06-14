@@ -16,6 +16,7 @@ dependencies:
   firebase_remote_config: ^5.0.0
   in_app_purchase: ^3.1.13
   shared_preferences: ^2.2.3
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:
