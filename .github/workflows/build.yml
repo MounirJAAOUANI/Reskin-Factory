@@ -78,43 +78,43 @@ jobs:
 
       - name: Configure signing in build.gradle
         run: |
-          cat > temp_project/android/app/build.gradle << 'GRADLE'
-          def keystoreProperties = new Properties()
-          def keystorePropertiesFile = rootProject.file('key.properties')
-          if (keystorePropertiesFile.exists()) {
-              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-          }
+          python3 << 'EOF'
+          import re, sys
 
-          android {
-              namespace "${{ inputs.package_id }}"
-              compileSdkVersion 34
+          path = 'temp_project/android/app/build.gradle'
+          gradle = open(path).read()
 
-              defaultConfig {
-                  applicationId "${{ inputs.package_id }}"
-                  minSdkVersion 21
-                  targetSdkVersion 34
-                  versionCode 1
-                  versionName "1.0.0"
-              }
+          keystore_block = (
+              "def keystoreProperties = new Properties()\n"
+              "def keystorePropertiesFile = rootProject.file('key.properties')\n"
+              "if (keystorePropertiesFile.exists()) {\n"
+              "    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n"
+              "}\n\n"
+          )
 
-              signingConfigs {
-                  release {
-                      keyAlias keystoreProperties['keyAlias']
-                      keyPassword keystoreProperties['keyPassword']
-                      storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-                      storePassword keystoreProperties['storePassword']
-                  }
-              }
+          signing_config_block = (
+              "    signingConfigs {\n"
+              "        release {\n"
+              "            keyAlias keystoreProperties['keyAlias']\n"
+              "            keyPassword keystoreProperties['keyPassword']\n"
+              "            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null\n"
+              "            storePassword keystoreProperties['storePassword']\n"
+              "        }\n"
+              "    }\n"
+          )
 
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                      minifyEnabled true
-                      proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-                  }
-              }
-          }
-          GRADLE
+          # Prepend keystore loading before android block
+          gradle = gradle.replace('android {', keystore_block + 'android {', 1)
+
+          # Inject signingConfigs before buildTypes
+          gradle = gradle.replace('    buildTypes {', signing_config_block + '    buildTypes {', 1)
+
+          # Point release build type at our signingConfig
+          gradle = re.sub(r'signingConfig\s*=?\s*signingConfigs\.debug', 'signingConfig signingConfigs.release', gradle)
+
+          open(path, 'w').write(gradle)
+          print("build.gradle patched successfully")
+          EOF
 
       - name: Build release AAB
         run: |
