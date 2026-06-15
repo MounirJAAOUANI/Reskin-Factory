@@ -154,10 +154,27 @@ jobs:
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: app-release-bundle
           path: temp_project/build/app/outputs/bundle/release/app-release.aab
           retention-days: 7
+
+      - name: Publish AAB as GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          AAB="temp_project/build/app/outputs/bundle/release/app-release.aab"
+          TAG="build-${{ github.run_number }}"
+          APP="${{ inputs.app_name }}"
+          PKG="${{ inputs.package_id }}"
+          gh release create "$TAG" "$AAB" \
+            --repo "${{ github.repository }}" \
+            --title "Build #${{ github.run_number }} — $APP ($PKG)" \
+            --notes "Automated release build\n\nApp: $APP\nPackage: $PKG\nRun: ${{ github.run_id }}" \
+            --latest
+          echo "AAB_RELEASE_URL=https://github.com/${{ github.repository }}/releases/tag/$TAG" >> $GITHUB_ENV
+          echo "Released at: https://github.com/${{ github.repository }}/releases/tag/$TAG"
 
       - name: Build summary
         run: |
