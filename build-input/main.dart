@@ -1,116 +1,245 @@
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:local_auth/local_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase
   await Firebase.initializeApp();
   
-  // Initialize Google Mobile Ads
   MobileAds.instance.initialize();
   
-  // Initialize In-App Purchase
   InAppPurchase.instance;
+  
+  final prefs = await SharedPreferences.getInstance();
+  
+  final remoteConfig = FirebaseRemoteConfig.instance;
+  await remoteConfig.setConfigSettings(
+    RemoteConfigSettings(
+      fetchTimeout: const Duration(minutes: 1),
+      minimumFetchInterval: const Duration(hours: 1),
+    ),
+  );
   
   runApp(const MoneyMindApp());
 }
 
-class MoneyMindApp extends StatelessWidget {
+class MoneyMindApp extends StatefulWidget {
   const MoneyMindApp({Key? key}) : super(key: key);
+
+  @override
+  State<MoneyMindApp> createState() => _MoneyMindAppState();
+}
+
+class _MoneyMindAppState extends State<MoneyMindApp> {
+  late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+  late LocalAuthentication _localAuth;
+  bool _isDarkMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeNotifications();
+    _initializeBiometric();
+    _loadThemePreference();
+  }
+
+  void _initializeNotifications() {
+    flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    
+    const AndroidInitializationSettings androidInitializationSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const DarwinInitializationSettings iosInitializationSettings =
+        DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+      android: androidInitializationSettings,
+      iOS: iosInitializationSettings,
+    );
+    
+    flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  void _initializeBiometric() {
+    _localAuth = LocalAuthentication();
+  }
+
+  void _loadThemePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool('dark_mode') ?? false;
+    });
+  }
+
+  void _toggleTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = !_isDarkMode;
+    });
+    await prefs.setBool('dark_mode', _isDarkMode);
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'MoneyMind',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primaryColor: const Color(0xFF2E7D32),
         useMaterial3: true,
-        fontFamily: 'Poppins',
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2E7D32),
+          seedColor: const Color(0xFF6366F1),
+          brightness: Brightness.light,
+        ),
+        fontFamily: 'Poppins',
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF6366F1),
+          foregroundColor: Colors.white,
+          elevation: 0,
         ),
       ),
-      home: const MainScreen(),
-      debugShowCheckedModeBanner: false,
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF6366F1),
+          brightness: Brightness.dark,
+        ),
+        fontFamily: 'Poppins',
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF4F46E5),
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+      ),
+      themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      home: MoneyMindHome(
+        onThemeToggle: _toggleTheme,
+        isDarkMode: _isDarkMode,
+      ),
     );
   }
 }
 
-class MainScreen extends StatefulWidget {
-  const MainScreen({Key? key}) : super(key: key);
+class MoneyMindHome extends StatefulWidget {
+  final Function() onThemeToggle;
+  final bool isDarkMode;
+
+  const MoneyMindHome({
+    Key? key,
+    required this.onThemeToggle,
+    required this.isDarkMode,
+  }) : super(key: key);
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  State<MoneyMindHome> createState() => _MoneyMindHomeState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MoneyMindHomeState extends State<MoneyMindHome> {
   int _selectedIndex = 0;
   late List<Widget> _screens;
-  late RemoteConfig _remoteConfig;
 
   @override
   void initState() {
     super.initState();
-    _screens = const [
-      DashboardScreen(),
-      AddExpenseScreen(),
-      CategoryBreakdownScreen(),
-      BudgetPlannerScreen(),
-      ReportsScreen(),
+    _screens = [
+      const DashboardScreen(),
+      const AddTransactionScreen(),
+      const BudgetPlannerScreen(),
+      const GoalsScreen(),
+      const AnalyticsScreen(),
     ];
-    _initializeRemoteConfig();
   }
 
-  Future<void> _initializeRemoteConfig() async {
-    _remoteConfig = RemoteConfig.instance;
-    await _remoteConfig.setConfigSettings(RemoteConfigSettings(
-      fetchTimeout: const Duration(minutes: 1),
-      minimumFetchInterval: const Duration(hours: 1),
-    ));
-    await _remoteConfig.fetchAndActivate();
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_selectedIndex],
+      appBar: AppBar(
+        title: const Text(
+          'MoneyMind',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(
+              widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+            ),
+            onPressed: widget.onThemeToggle,
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProfileScreen(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const [
+        items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.add_circle),
-            label: 'Add Expense',
+            label: 'Add',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.pie_chart),
-            label: 'Categories',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.budget),
+            icon: Icon(Icons.wallet),
             label: 'Budget',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.assessment),
-            label: 'Reports',
+            icon: Icon(Icons.target),
+            label: 'Goals',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: 'Analytics',
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: const Color(0xFF2E7D32),
+        selectedItemColor: const Color(0xFF6366F1),
         unselectedItemColor: Colors.grey,
-        onTap: (int index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
+        onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed,
       ),
     );
   }
@@ -121,283 +250,234 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        backgroundColor: const Color(0xFF2E7D32),
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Card(
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'Total Balance',
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Total Balance',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        '\$5,234.50',
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2E7D32),
-                        ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '\$5,234.50',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF6366F1),
                       ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          Column(
-                            children: const [
-                              Text('Income', style: TextStyle(color: Colors.grey)),
-                              Text('\$8,500', style: TextStyle(fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                          Column(
-                            children: const [
-                              Text('Expenses', style: TextStyle(color: Colors.grey)),
-                              Text('\$3,265.50', style: TextStyle(fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildBalanceItem('Income', '\$8,500', Colors.green),
+                        _buildBalanceItem('Expense', '-\$3,265.50', Colors.red),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Recent Transactions',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildTransactionItem('Grocery Store', '-\$45.50', 'Today'),
-                  _buildTransactionItem('Salary', '+\$3,000', 'Yesterday'),
-                  _buildTransactionItem('Gas', '-\$35.00', '2 days ago'),
-                ],
+            const SizedBox(height: 24),
+            const Text(
+              'Recent Transactions',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const BannerAdWidget(),
+            const SizedBox(height: 12),
+            _buildTransactionItem(
+              'Grocery Store',
+              '-\$45.60',
+              Icons.shopping_bag,
+              Colors.orange,
+            ),
+            _buildTransactionItem(
+              'Salary Deposit',
+              '+\$3,500',
+              Icons.account_balance,
+              Colors.green,
+            ),
+            _buildTransactionItem(
+              'Electric Bill',
+              '-\$120.00',
+              Icons.bolt,
+              Colors.yellow,
+            ),
+            const SizedBox(height: 24),
+            BannerAdWidget(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTransactionItem(String title, String amount, String date) {
+  Widget _buildBalanceItem(String label, String amount, Color color) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          amount,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransactionItem(
+    String title,
+    String amount,
+    IconData icon,
+    Color color,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-              Text(date, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
+      child: Card(
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: color.withOpacity(0.2),
+            child: Icon(icon, color: color),
           ),
-          Text(
+          title: Text(title),
+          trailing: Text(
             amount,
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: amount.startsWith('+') ? Colors.green : Colors.red,
+              color: amount.startsWith('-') ? Colors.red : Colors.green,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class AddExpenseScreen extends StatelessWidget {
-  const AddExpenseScreen({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Expense'),
-        backgroundColor: const Color(0xFF2E7D32),
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Amount',
-                  prefixText: '\$ ',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              const TextField(
-                decoration: InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'food', child: Text('Food & Dining')),
-                  DropdownMenuItem(value: 'transport', child: Text('Transport')),
-                  DropdownMenuItem(value: 'utilities', child: Text('Utilities')),
-                  DropdownMenuItem(value: 'entertainment', child: Text('Entertainment')),
-                  DropdownMenuItem(value: 'health', child: Text('Health & Medical')),
-                ]
-                    .toList(),
-                onChanged: (_) {},
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Currency',
-                  border: OutlineInputBorder(),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'usd', child: Text('USD')),
-                  DropdownMenuItem(value: 'eur', child: Text('EUR')),
-                  DropdownMenuItem(value: 'gbp', child: Text('GBP')),
-                  DropdownMenuItem(value: 'inr', child: Text('INR')),
-                ]
-                    .toList(),
-                onChanged: (_) {},
-              ),
-              const SizedBox(height: 16),
-              CheckboxListTile(
-                title: const Text('Recurring Expense'),
-                value: false,
-                onChanged: (_) {},
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Expense added successfully')),
-                    );
-                  },
-                  child: const Text(
-                    'Add Expense',
-                    style: TextStyle(fontSize: 16, color: Colors.white),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const BannerAdWidget(),
-            ],
-          ),
         ),
       ),
     );
   }
 }
 
-class CategoryBreakdownScreen extends StatelessWidget {
-  const CategoryBreakdownScreen({Key? key}) : super(key: key);
+class AddTransactionScreen extends StatelessWidget {
+  const AddTransactionScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final categories = [
-      {'name': 'Food & Dining', 'amount': 450.50, 'percentage': 35},
-      {'name': 'Transport', 'amount': 320.00, 'percentage': 25},
-      {'name': 'Utilities', 'amount': 260.00, 'percentage': 20},
-      {'name': 'Entertainment', 'amount': 195.00, 'percentage': 15},
-      {'name': 'Health & Medical', 'amount': 40.00, 'percentage': 5},
-    ];
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Category Breakdown'),
-        backgroundColor: const Color(0xFF2E7D32),
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Card(
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'This Month\'s Breakdown',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Add New Transaction',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    _buildTextField('Amount', '\$0.00'),
+                    const SizedBox(height: 16),
+                    _buildTextField('Description', 'Enter description'),
+                    const SizedBox(height: 16),
+                    _buildDropdown('Category', ['Food', 'Transport', 'Bills']),
+                    const SizedBox(height: 16),
+                    _buildDropdown('Type', ['Income', 'Expense']),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        minimumSize: const Size(double.infinity, 48),
                       ),
-                      const SizedBox(height: 12),
-                      ...categories.map((cat) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(cat['name'] as String),
-                                  Text(
-                                    '\$${(cat['amount'] as num).toStringAsFixed(2)}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: (cat['percentage'] as int) / 100,
-                                  minHeight: 8,
-                                  backgroundColor: Colors.grey[300],
-                                  valueColor: const AlwaysStoppedAnimation<Color>(
-                                    Color(0xFF2E7D32),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ],
-                  ),
+                      onPressed: () {},
+                      child: const Text(
+                        'Add Transaction',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              const BannerAdWidget(),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Recurring Transactions',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.repeat, color: Color(0xFF6366F1)),
+                title: const Text('Set Up Recurring Transaction'),
+                trailing: const Icon(Icons.arrow_forward),
+                onTap: () {},
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTextField(String label, String hint) {
+    return TextField(
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdown(String label, List<String> items) {
+    return DropdownButtonFormField<String>(
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      items: items.map((String value) {
+        return DropdownMenuItem<String>(
+          value: value,
+          child: Text(value),
+        );
+      }).toList(),
+      onChanged: (String? newValue) {},
     );
   }
 }
@@ -407,51 +487,38 @@ class BudgetPlannerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final budgets = [
-      {'category': 'Food & Dining', 'limit': 500, 'spent': 450.50, 'icon': Icons.restaurant},
-      {'category': 'Transport', 'limit': 400, 'spent': 320.00, 'icon': Icons.directions_car},
-      {'category': 'Utilities', 'limit': 300, 'spent': 260.00, 'icon': Icons.flash_on},
-      {'category': 'Entertainment', 'limit': 250, 'spent': 195.00, 'icon': Icons.movie},
-    ];
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Budget Planner'),
-        backgroundColor: const Color(0xFF2E7D32),
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              ...budgets.map((budget) {
-                final percentage = (budget['spent'] as num) / (budget['limit'] as num);
-                final isOverBudget = percentage > 1;
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Card(
-                    elevation: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(budget['icon'] as IconData,
-                                  color: const Color(0xFF2E7D32)),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      budget['category'] as String,
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                                    Text(
-                                      '\$${budget['spent']} / \$${budget['limit']}',
-                                      style: const TextStyle(
-                                        fontSize: 12,
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Budget Planner',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Monthly Budget',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildBudgetItem('Food & Dining', 500, 350),
+                    const SizedBox(height: 12),
+                    _buildBudgetItem('Transportation', 300, 200),
+                    const SizedBox(height: 12),
+                    _buildBudgetItem('Utilities', 200, 180),
+                    const SizedBox(height: 12),
+                    _buildBudgetItem('Entertainment', 150,
