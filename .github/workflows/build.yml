@@ -82,12 +82,8 @@ jobs:
             KPASS="debugpass123"
             ALIAS="upload"
           fi
-          cat > temp_project/android/key.properties << KEYEOF
-          storePassword=${SPASS}
-          keyPassword=${KPASS}
-          keyAlias=${ALIAS}
-          storeFile=/tmp/upload-keystore.jks
-          KEYEOF
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=/tmp/upload-keystore.jks\n' \
+            "$SPASS" "$KPASS" "$ALIAS" > temp_project/android/key.properties
 
       - name: Configure signing in build.gradle
         run: |
@@ -108,10 +104,10 @@ jobs:
           signing_config_block = (
               "    signingConfigs {\n"
               "        release {\n"
-              "            keyAlias keystoreProperties['keyAlias']?.trim()\n"
-              "            keyPassword keystoreProperties['keyPassword']?.trim()\n"
-              "            storeFile file('/tmp/upload-keystore.jks')\n"
-              "            storePassword keystoreProperties['storePassword']?.trim()\n"
+              "            keyAlias keystoreProperties.getProperty('keyAlias', 'upload')\n"
+              "            keyPassword keystoreProperties.getProperty('keyPassword', 'debugpass123')\n"
+              "            storeFile file(keystoreProperties.getProperty('storeFile', '/tmp/upload-keystore.jks'))\n"
+              "            storePassword keystoreProperties.getProperty('storePassword', 'debugpass123')\n"
               "        }\n"
               "    }\n"
           )
