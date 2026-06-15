@@ -53,8 +53,11 @@ jobs:
           sed -i "s/applicationId = \".*\"/applicationId = \"${{ inputs.package_id }}\"/" temp_project/android/app/build.gradle
           sed -i "s/namespace = \".*\"/namespace = \"${{ inputs.package_id }}\"/" temp_project/android/app/build.gradle
           # firebase_remote_config requires minSdk >= 21
-          sed -i "s/minSdkVersion [0-9]*/minSdkVersion 21/" temp_project/android/app/build.gradle
-          sed -i "s/minSdk = [0-9]*/minSdk = 21/" temp_project/android/app/build.gradle
+          # Use [0-9][0-9]* (one-or-more) to avoid matching "flutter.minSdkVersion"
+          sed -i "s/minSdkVersion flutter\.minSdkVersion/minSdkVersion 21/" temp_project/android/app/build.gradle
+          sed -i "s/minSdkVersion [0-9][0-9]*/minSdkVersion 21/" temp_project/android/app/build.gradle
+          sed -i "s/minSdk = flutter\.minSdkVersion/minSdk = 21/" temp_project/android/app/build.gradle
+          sed -i "s/minSdk = [0-9][0-9]*/minSdk = 21/" temp_project/android/app/build.gradle
 
       - name: Flutter pub get
         run: |
@@ -130,16 +133,10 @@ jobs:
           print("build.gradle patched successfully")
           PYEOF
 
-      - name: Debug - print build.gradle
-        run: |
-          echo "=== build.gradle ===" && cat -n temp_project/android/app/build.gradle
-          echo "=== key.properties ===" && cat -n temp_project/android/key.properties || echo "(not found)"
-          echo "=== keystore exists ===" && ls -la /tmp/upload-keystore.jks || echo "(not found)"
-
       - name: Build release AAB
         run: |
           cd temp_project
-          flutter build appbundle --release --stacktrace 2>&1 | tail -80
+          flutter build appbundle --release
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
