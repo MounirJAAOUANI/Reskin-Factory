@@ -61,16 +61,17 @@ jobs:
 
       - name: Patch Kotlin version for google_mobile_ads compatibility
         run: |
-          echo "=== Root android/build.gradle before patch ==="
-          cat -n temp_project/android/build.gradle
-          # google_mobile_ads 5.x requires Kotlin >= 1.9.0; Flutter 3.19 defaults to 1.7.x
-          # Handle both single and double quotes
-          sed -i "s/ext.kotlin_version = '[^']*'/ext.kotlin_version = '1.9.20'/" temp_project/android/build.gradle
-          sed -i 's/ext.kotlin_version = "[^"]*"/ext.kotlin_version = "1.9.20"/' temp_project/android/build.gradle
-          # Also patch if version is hardcoded in classpath
-          sed -i "s/kotlin-gradle-plugin:[0-9][0-9.]*/kotlin-gradle-plugin:1.9.20/" temp_project/android/build.gradle
-          echo "=== Root android/build.gradle after patch ==="
-          cat -n temp_project/android/build.gradle
+          # google_mobile_ads 5.x requires Kotlin >= 1.9.0
+          # Flutter 3.19 declares Kotlin in android/settings.gradle (plugins DSL), not build.gradle
+          echo "=== settings.gradle before ==="
+          cat -n temp_project/android/settings.gradle
+          # Patch org.jetbrains.kotlin.android version in settings.gradle
+          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.20"/' temp_project/android/settings.gradle
+          sed -i "s/id \"org.jetbrains.kotlin.android\" version \"[^\"]*\"/id \"org.jetbrains.kotlin.android\" version \"1.9.20\"/" temp_project/android/settings.gradle
+          # Also patch kotlinOptions jvmTarget in app/build.gradle
+          sed -i 's/jvmTarget = .*/jvmTarget = "17"/' temp_project/android/app/build.gradle
+          echo "=== settings.gradle after ==="
+          cat -n temp_project/android/settings.gradle
 
       - name: Flutter pub get
         run: |
