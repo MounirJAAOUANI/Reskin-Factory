@@ -10,28 +10,27 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await MobileAds.instance.initialize();
-  runApp(const FinMindApp());
+  runApp(const SpendSmartApp());
 }
 
-const Color kPrimary = Color(0xFF6366F1);
-
-class FinMindApp extends StatefulWidget {
-  const FinMindApp({super.key});
+class SpendSmartApp extends StatefulWidget {
+  const SpendSmartApp({super.key});
   @override
-  State<FinMindApp> createState() => _FinMindAppState();
+  State<SpendSmartApp> createState() => _SpendSmartAppState();
 }
 
-class _FinMindAppState extends State<FinMindApp> {
+class _SpendSmartAppState extends State<SpendSmartApp> {
   int _currentIndex = 0;
   BannerAd? _bannerAd;
-  bool _bannerLoaded = false;
-  bool _showOnboarding = true;
+  bool _bannerAdLoaded = false;
+  final Color _primaryColor = const Color(0xFF2E7D32);
 
   final List<Widget> _screens = const [
     DashboardScreen(),
-    ExpenseEntryScreen(),
-    AIInsightsScreen(),
-    SavingsGoalsScreen(),
+    BudgetPlannerScreen(),
+    ExpenseTrackerScreen(),
+    AnalyticsScreen(),
+    SettingsScreen(),
   ];
 
   @override
@@ -39,18 +38,19 @@ class _FinMindAppState extends State<FinMindApp> {
     super.initState();
     _initRemoteConfig();
     _loadBannerAd();
-    _checkOnboarding();
   }
 
   Future<void> _initRemoteConfig() async {
     try {
-      final rc = FirebaseRemoteConfig.instance;
-      await rc.setConfigSettings(RemoteConfigSettings(
+      final remoteConfig = FirebaseRemoteConfig.instance;
+      await remoteConfig.setConfigSettings(RemoteConfigSettings(
         fetchTimeout: const Duration(seconds: 10),
         minimumFetchInterval: const Duration(hours: 1),
       ));
-      await rc.fetchAndActivate();
-    } catch (_) {}
+      await remoteConfig.fetchAndActivate();
+    } catch (e) {
+      debugPrint('Remote config error: $e');
+    }
   }
 
   void _loadBannerAd() {
@@ -59,22 +59,13 @@ class _FinMindAppState extends State<FinMindApp> {
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(
-        onAdLoaded: (_) => setState(() => _bannerLoaded = true),
-        onAdFailedToLoad: (ad, __) => ad.dispose(),
+        onAdLoaded: (ad) => setState(() => _bannerAdLoaded = true),
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          debugPrint('Banner ad failed: $error');
+        },
       ),
     )..load();
-  }
-
-  Future<void> _checkOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    final seen = prefs.getBool('onboarding_seen') ?? false;
-    setState(() => _showOnboarding = !seen);
-  }
-
-  Future<void> _completeOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_seen', true);
-    setState(() => _showOnboarding = false);
   }
 
   @override
@@ -86,81 +77,41 @@ class _FinMindAppState extends State<FinMindApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FinMind',
+      title: 'SpendSmart',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: kPrimary),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: kPrimary,
+        colorScheme: ColorScheme.fromSeed(seedColor: _primaryColor),
+        appBarTheme: AppBarTheme(
+          backgroundColor: _primaryColor,
           foregroundColor: Colors.white,
         ),
+        useMaterial3: true,
       ),
-      home: _showOnboarding
-          ? OnboardingScreen(onDone: _completeOnboarding)
-          : Scaffold(
-              body: _screens[_currentIndex],
-              bottomNavigationBar: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_bannerLoaded && _bannerAd != null)
-                    SizedBox(
-                      height: _bannerAd!.size.height.toDouble(),
-                      width: _bannerAd!.size.width.toDouble(),
-                      child: AdWidget(ad: _bannerAd!),
-                    ),
-                  BottomNavigationBar(
-                    currentIndex: _currentIndex,
-                    onTap: (i) => setState(() => _currentIndex = i),
-                    selectedItemColor: kPrimary,
-                    unselectedItemColor: Colors.grey,
-                    type: BottomNavigationBarType.fixed,
-                    items: const [
-                      BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-                      BottomNavigationBarItem(icon: Icon(Icons.add_card), label: 'Expenses'),
-                      BottomNavigationBarItem(icon: Icon(Icons.auto_awesome), label: 'AI Insights'),
-                      BottomNavigationBarItem(icon: Icon(Icons.savings), label: 'Goals'),
-                    ],
-                  ),
-                ],
+      home: Scaffold(
+        body: _screens[_currentIndex],
+        bottomNavigationBar: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_bannerAdLoaded && _bannerAd != null)
+              SizedBox(
+                height: _bannerAd!.size.height.toDouble(),
+                width: _bannerAd!.size.width.toDouble(),
+                child: AdWidget(ad: _bannerAd!),
               ),
+            BottomNavigationBar(
+              currentIndex: _currentIndex,
+              selectedItemColor: _primaryColor,
+              unselectedItemColor: Colors.grey,
+              type: BottomNavigationBarType.fixed,
+              onTap: (index) => setState(() => _currentIndex = index),
+              items: const [
+                BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
+                BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet), label: 'Budget'),
+                BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'Expenses'),
+                BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Analytics'),
+                BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+              ],
             ),
-    );
-  }
-}
-
-class OnboardingScreen extends StatelessWidget {
-  final VoidCallback onDone;
-  const OnboardingScreen({super.key, required this.onDone});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kPrimary,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.account_balance_wallet, size: 100, color: Colors.white),
-              const SizedBox(height: 24),
-              const Text('Welcome to FinMind', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
-              const SizedBox(height: 16),
-              const Text('Smart finance tracking powered by AI. Track expenses, set goals, and get personalized insights.',
-                  textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.white70)),
-              const SizedBox(height: 48),
-              ElevatedButton(
-                onPressed: onDone,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: kPrimary,
-                  minimumSize: const Size(double.infinity, 52),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Get Started', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -169,43 +120,44 @@ class OnboardingScreen extends StatelessWidget {
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('FinMind Dashboard')),
+      appBar: AppBar(title: const Text('Dashboard')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Card(
-            color: kPrimary,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: const Padding(
-              padding: EdgeInsets.all(24),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Total Balance', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                SizedBox(height: 8),
-                Text('\$12,450.00', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
-              ]),
+            child: ListTile(
+              leading: const Icon(Icons.account_balance, color: Color(0xFF2E7D32)),
+              title: const Text('Total Balance'),
+              subtitle: const Text('\$4,250.00'),
+              trailing: const Icon(Icons.arrow_forward_ios),
             ),
           ),
-          const SizedBox(height: 16),
-          const Text('This Month', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          ListTile(
-            leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.arrow_downward, color: Colors.white)),
-            title: const Text('Income'),
-            trailing: const Text('\$5,200.00', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.trending_down, color: Colors.red),
+              title: const Text('Monthly Spending'),
+              subtitle: const Text('\$1,320.50'),
+              trailing: const Icon(Icons.arrow_forward_ios),
+            ),
           ),
-          ListTile(
-            leading: const CircleAvatar(backgroundColor: Colors.red, child: Icon(Icons.arrow_upward, color: Colors.white)),
-            title: const Text('Expenses'),
-            trailing: const Text('\$2,340.00', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.savings, color: Color(0xFF2E7D32)),
+              title: const Text('Savings This Month'),
+              subtitle: const Text('\$530.00'),
+              trailing: const Icon(Icons.arrow_forward_ios),
+            ),
           ),
-          ListTile(
-            leading: const CircleAvatar(backgroundColor: kPrimary, child: Icon(Icons.savings, color: Colors.white)),
-            title: const Text('Saved'),
-            trailing: const Text('\$2,860.00', style: TextStyle(color: kPrimary, fontWeight: FontWeight.bold)),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.warning_amber, color: Colors.orange),
+              title: const Text('Budget Alert'),
+              subtitle: const Text('Food budget 80% used'),
+              trailing: const Icon(Icons.arrow_forward_ios),
+            ),
           ),
         ],
       ),
@@ -213,140 +165,222 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
-class ExpenseEntryScreen extends StatelessWidget {
-  const ExpenseEntryScreen({super.key});
-
+class BudgetPlannerScreen extends StatelessWidget {
+  const BudgetPlannerScreen({super.key});
   @override
   Widget build(BuildContext context) {
-    final expenses = [
-      {'label': 'Groceries', 'amount': '\$85.40', 'date': 'Today', 'icon': Icons.shopping_cart},
-      {'label': 'Netflix', 'amount': '\$15.99', 'date': 'Yesterday', 'icon': Icons.tv},
-      {'label': 'Gas Station', 'amount': '\$52.00', 'date': 'Dec 10', 'icon': Icons.local_gas_station},
-      {'label': 'Restaurant', 'amount': '\$38.75', 'date': 'Dec 9', 'icon': Icons.restaurant},
-    ];
     return Scaffold(
-      appBar: AppBar(title: const Text('Expense Entry')),
+      appBar: AppBar(title: const Text('Budget Planner')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.restaurant, color: Color(0xFF2E7D32)),
+              title: const Text('Food & Dining'),
+              subtitle: const Text('\$400 / \$500 budget'),
+              trailing: const Text('80%', style: TextStyle(color: Colors.orange)),
+            ),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.directions_car, color: Color(0xFF2E7D32)),
+              title: const Text('Transportation'),
+              subtitle: const Text('\$150 / \$300 budget'),
+              trailing: const Text('50%', style: TextStyle(color: Color(0xFF2E7D32))),
+            ),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.movie, color: Color(0xFF2E7D32)),
+              title: const Text('Entertainment'),
+              subtitle: const Text('\$200 / \$200 budget'),
+              trailing: const Text('100%', style: TextStyle(color: Colors.red)),
+            ),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.home, color: Color(0xFF2E7D32)),
+              title: const Text('Housing'),
+              subtitle: const Text('\$900 / \$1000 budget'),
+              trailing: const Text('90%', style: TextStyle(color: Colors.orange)),
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: kPrimary,
+        backgroundColor: const Color(0xFF2E7D32),
         onPressed: () {},
         child: const Icon(Icons.add, color: Colors.white),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text('Recent Expenses', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          ...expenses.map((e) => Card(
-                child: ListTile(
-                  leading: CircleAvatar(backgroundColor: kPrimary.withOpacity(0.15), child: Icon(e['icon'] as IconData, color: kPrimary)),
-                  title: Text(e['label'] as String),
-                  subtitle: Text(e['date'] as String),
-                  trailing: Text(e['amount'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ),
-              )),
-        ],
-      ),
     );
   }
 }
 
-class AIInsightsScreen extends StatelessWidget {
-  const AIInsightsScreen({super.key});
-
+class ExpenseTrackerScreen extends StatelessWidget {
+  const ExpenseTrackerScreen({super.key});
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('AI Insights')),
+      appBar: AppBar(title: const Text('Expense Tracker')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Card(
-            color: kPrimary.withOpacity(0.1),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: const ListTile(
-              leading: Icon(Icons.auto_awesome, color: kPrimary),
-              title: Text('Spending Alert', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('You spent 20% more on dining this month compared to last month.'),
+            child: ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFF2E7D32),
+                child: Icon(Icons.local_grocery_store, color: Colors.white),
+              ),
+              title: const Text('Grocery Shopping'),
+              subtitle: const Text('Dec 10, 2024'),
+              trailing: const Text('-\$85.30', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             ),
           ),
-          const SizedBox(height: 8),
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: const ListTile(
-              leading: Icon(Icons.lightbulb, color: Colors.amber),
-              title: Text('Smart Tip', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('Cutting subscriptions could save you \$45/month.'),
+            child: ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFF2E7D32),
+                child: Icon(Icons.local_gas_station, color: Colors.white),
+              ),
+              title: const Text('Gas Station'),
+              subtitle: const Text('Dec 9, 2024'),
+              trailing: const Text('-\$45.00', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             ),
           ),
-          const SizedBox(height: 8),
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: const ListTile(
-              leading: Icon(Icons.trending_up, color: Colors.green),
-              title: Text('Savings Forecast', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('At your current rate, you will save \$34,000 by end of next year.'),
+            child: ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFF2E7D32),
+                child: Icon(Icons.coffee, color: Colors.white),
+              ),
+              title: const Text('Coffee Shop'),
+              subtitle: const Text('Dec 9, 2024'),
+              trailing: const Text('-\$6.75', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             ),
           ),
-          const SizedBox(height: 8),
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: const ListTile(
-              leading: Icon(Icons.category, color: kPrimary),
-              title: Text('Top Category', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('Food & Dining accounts for 35% of your total spending.'),
+            child: ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Colors.blue,
+                child: Icon(Icons.attach_money, color: Colors.white),
+              ),
+              title: const Text('Salary Deposit'),
+              subtitle: const Text('Dec 1, 2024'),
+              trailing: const Text('+\$3,200.00', style: TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold)),
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-class SavingsGoalsScreen extends StatelessWidget {
-  const SavingsGoalsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final goals = [
-      {'name': 'Emergency Fund', 'current': 3000.0, 'target': 5000.0, 'icon': Icons.health_and_safety},
-      {'name': 'Vacation', 'current': 1200.0, 'target': 3000.0, 'icon': Icons.flight},
-      {'name': 'New Laptop', 'current': 800.0, 'target': 1500.0, 'icon': Icons.laptop},
-      {'name': 'Home Down Payment', 'current': 15000.0, 'target': 50000.0, 'icon': Icons.home},
-    ];
-    return Scaffold(
-      appBar: AppBar(title: const Text('Savings Goals')),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: kPrimary,
+        backgroundColor: const Color(0xFF2E7D32),
         onPressed: () {},
         child: const Icon(Icons.add, color: Colors.white),
       ),
+    );
+  }
+}
+
+class AnalyticsScreen extends StatelessWidget {
+  const AnalyticsScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Analytics')),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: goals.map((g) {
-          final progress = (g['current'] as double) / (g['target'] as double);
-          return Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            margin: const EdgeInsets.only(bottom: 12),
+        children: [
+          Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Icon(g['icon'] as IconData, color: kPrimary),
-                  const SizedBox(width: 8),
-                  Text(g['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const Spacer(),
-                  Text('${(progress * 100).toStringAsFixed(0)}%', style: const TextStyle(color: kPrimary, fontWeight: FontWeight.bold)),
-                ]),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(value: progress, backgroundColor: Colors.grey.shade200, color: kPrimary, minHeight: 8,
-                    borderRadius: BorderRadius.circular(4)),
-                const SizedBox(height: 4),
-                Text('\$${(g['current'] as double).toStringAsFixed(0)} of \$${(g['target'] as double).toStringAsFixed(0)}',
-                    style: const TextStyle(color: Colors.grey)),
-              ]),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Spending by Category', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  _buildCategoryRow('Food', 0.4, Colors.red),
+                  _buildCategoryRow('Housing', 0.3, Colors.blue),
+                  _buildCategoryRow('Transport', 0.15, Colors.orange),
+                  _buildCategoryRow('Entertainment', 0.15, Colors.purple),
+                ],
+              ),
             ),
-          );
-        }).toList(),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.trending_up, color: Color(0xFF2E7D32)),
+              title: const Text('Monthly Comparison'),
+              subtitle: const Text('You spent 12% less than last month'),
+            ),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.emoji_events, color: Colors.amber),
+              title: const Text('Savings Goal'),
+              subtitle: const Text('65% of \$2,000 annual goal reached'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryRow(String label, double value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 100, child: Text(label)),
+          Expanded(child: LinearProgressIndicator(value: value, color: color, backgroundColor: Colors.grey[200])),
+          const SizedBox(width: 8),
+          Text('${(value * 100).toInt()}%'),
+        ],
+      ),
+    );
+  }
+}
+
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
+      body: ListView(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.person, color: Color(0xFF2E7D32)),
+            title: const Text('Profile'),
+            subtitle: const Text('Manage your account details'),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {},
+          ),
+          ListTile(
+            leading: const Icon(Icons.notifications, color: Color(0xFF2E7D32)),
+            title: const Text('Notifications'),
+            subtitle: const Text('Budget alerts and reminders'),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {},
+          ),
+          ListTile(
+            leading: const Icon(Icons.currency_exchange, color: Color(0xFF2E7D32)),
+            title: const Text('Currency'),
+            subtitle: const Text('USD - US Dollar'),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {},
+          ),
+          ListTile(
+            leading: const Icon(Icons.star, color: Color(0xFF2E7D32)),
+            title: const Text('Upgrade to Premium'),
+            subtitle: const Text('Remove ads and unlock features'),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () async {
+              final InAppPurchase iap = InAppPurchase.instance;
+              final bool available = await iap.isAvailable();
+              debugPrint('IAP available: $available');
+            },
+          ),
+        ],
       ),
     );
   }
