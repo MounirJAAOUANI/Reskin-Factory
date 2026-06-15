@@ -127,23 +127,29 @@ export async function getWorkflowRun(runId: string): Promise<WorkflowRun> {
   return ghFetch<WorkflowRun>(`/repos/${repoOwner}/${repoName}/actions/runs/${runId}`);
 }
 
-// ─── Download artifact ────────────────────────────────────────────────────────
+// ─── Download AAB from GitHub Release ────────────────────────────────────────
 
-export async function downloadArtifact(runId: string): Promise<Buffer> {
+export async function downloadAabFromRelease(runId: string): Promise<Buffer> {
   const { repoOwner, repoName } = config.github;
 
-  const artifacts = await ghFetch<{ artifacts: Array<{ id: number; name: string }> }>(
-    `/repos/${repoOwner}/${repoName}/actions/runs/${runId}/artifacts`
+  // Get run_number from the workflow run
+  const run = await ghFetch<{ run_number: number }>(`/repos/${repoOwner}/${repoName}/actions/runs/${runId}`);
+  const tag = `build-${run.run_number}`;
+
+  // Get the release for this tag
+  const release = await ghFetch<{ assets: Array<{ id: number; name: string; browser_download_url: string }> }>(
+    `/repos/${repoOwner}/${repoName}/releases/tags/${tag}`
   );
 
-  const artifact = artifacts.artifacts.find((a) => a.name === 'app-release-bundle');
-  if (!artifact) throw new Error('No artifact named "app-release-bundle" found');
+  const aabAsset = release.assets.find((a) => a.name.endsWith('.aab'));
+  if (!aabAsset) throw new Error(`No .aab asset found in release ${tag}`);
 
+  // Download via API (handles private repos)
   const res = await fetch(
-    `${BASE}/repos/${repoOwner}/${repoName}/actions/artifacts/${artifact.id}/zip`,
-    { headers: headers(), redirect: 'follow' }
+    `${BASE}/repos/${repoOwner}/${repoName}/releases/assets/${aabAsset.id}`,
+    { headers: { ...headers(), Accept: 'application/octet-stream' }, redirect: 'follow' }
   );
-  if (!res.ok) throw new Error(`Failed to download artifact: ${res.status}`);
+  if (!res.ok) throw new Error(`Failed to download AAB from release: ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
 }
 

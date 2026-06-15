@@ -267,7 +267,8 @@ app.post('/api/agents/build-deploy', checkPassword, (req, res) => {
           } else {
             await job.fail(error ?? 'Build failed');
           }
-        }
+        },
+        payload.packageId
       );
     } catch (err) {
       await job.fail(err as Error);

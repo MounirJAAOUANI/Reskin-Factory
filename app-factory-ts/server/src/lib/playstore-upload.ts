@@ -1,12 +1,11 @@
 import { google } from 'googleapis';
 import { config, isDev } from '../config.js';
 
-export async function uploadToPlayConsole(aabBuffer: Buffer): Promise<string> {
+export async function uploadToPlayConsole(aabBuffer: Buffer, packageName: string): Promise<string> {
   if (isDev) {
     return 'https://play.google.com/console/u/0/developers/dev/app-list';
   }
 
-  const packageName = config.googlePlay.packageId;
   const serviceAccount = JSON.parse(config.googlePlay.serviceAccount) as object;
 
   const auth = new google.auth.GoogleAuth({

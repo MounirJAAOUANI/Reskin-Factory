@@ -1,5 +1,4 @@
-import AdmZip from 'adm-zip';
-import { getWorkflowRun, downloadArtifact } from './github.js';
+import { getWorkflowRun, downloadAabFromRelease } from './github.js';
 import { uploadToPlayConsole } from './playstore-upload.js';
 import { isDev } from '../config.js';
 import type { JobStatus, BuildDeployResult } from '../types.js';
@@ -19,14 +18,15 @@ export function startGitHubPoller(
   jobId: string,
   workflowRunId: string,
   log: LogFn,
-  onComplete: OnComplete
+  onComplete: OnComplete,
+  packageId = ''
 ): void {
   if (isDev) {
     void simulateDevBuild(jobId, workflowRunId, log, onComplete);
     return;
   }
 
-  void runPoller(jobId, workflowRunId, log, onComplete);
+  void runPoller(jobId, workflowRunId, log, onComplete, packageId);
 }
 
 async function simulateDevBuild(
@@ -59,7 +59,8 @@ async function runPoller(
   _jobId: string,
   runId: string,
   log: LogFn,
-  onComplete: OnComplete
+  onComplete: OnComplete,
+  packageId: string
 ): Promise<void> {
   let polls = 0;
 
@@ -77,22 +78,16 @@ async function runPoller(
           return;
         }
 
-        await log('✅ Build succeeded! Downloading artifact...', 'success');
-        const zipBuffer = await downloadArtifact(runId);
+        await log('✅ Build succeeded! Downloading AAB from GitHub Release...', 'success');
+        const aabBuffer = await downloadAabFromRelease(runId);
 
-        await log('📦 Extracting AAB...', 'info');
-        const zip = new AdmZip(zipBuffer);
-        const aabEntry = zip.getEntries().find((e) => e.entryName.endsWith('.aab'));
-        if (!aabEntry) throw new Error('No .aab file found in artifact');
-
-        const aabBuffer = aabEntry.getData();
-        await log(`📤 Uploading ${aabEntry.entryName} to Play Console...`, 'info');
-        const draftUrl = await uploadToPlayConsole(aabBuffer);
+        await log(`📤 Uploading AAB to Play Console (${packageId})...`, 'info');
+        const draftUrl = await uploadToPlayConsole(aabBuffer, packageId);
 
         await log('🎉 App uploaded to Play Console as DRAFT!', 'success');
         await onComplete('done', {
           apkUrl: run.html_url,
-          apkName: aabEntry.entryName,
+          apkName: 'app-release.aab',
           apkSize: aabBuffer.length,
           playConsoleStatus: 'DRAFT',
           draftUrl,
