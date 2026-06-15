@@ -90,10 +90,10 @@ jobs:
           signing_config_block = (
               "    signingConfigs {\n"
               "        release {\n"
-              "            keyAlias keystoreProperties['keyAlias']\n"
-              "            keyPassword keystoreProperties['keyPassword']\n"
-              "            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null\n"
-              "            storePassword keystoreProperties['storePassword']\n"
+              "            keyAlias keystoreProperties['keyAlias'] ?: 'upload'\n"
+              "            keyPassword keystoreProperties['keyPassword'] ?: ''\n"
+              "            storeFile file('/tmp/upload-keystore.jks')\n"
+              "            storePassword keystoreProperties['storePassword'] ?: ''\n"
               "        }\n"
               "    }\n"
           )
