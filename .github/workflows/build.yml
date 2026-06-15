@@ -52,6 +52,9 @@ jobs:
           # New Gradle DSL uses = assignment
           sed -i "s/applicationId = \".*\"/applicationId = \"${{ inputs.package_id }}\"/" temp_project/android/app/build.gradle
           sed -i "s/namespace = \".*\"/namespace = \"${{ inputs.package_id }}\"/" temp_project/android/app/build.gradle
+          # firebase_remote_config requires minSdk >= 21
+          sed -i "s/minSdkVersion [0-9]*/minSdkVersion 21/" temp_project/android/app/build.gradle
+          sed -i "s/minSdk = [0-9]*/minSdk = 21/" temp_project/android/app/build.gradle
 
       - name: Flutter pub get
         run: |
