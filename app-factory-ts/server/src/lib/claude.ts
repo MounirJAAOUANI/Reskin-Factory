@@ -17,11 +17,11 @@ function getClient(): Anthropic {
   return client;
 }
 
-async function ask(prompt: string, systemPrompt?: string): Promise<string> {
+async function ask(prompt: string, systemPrompt?: string, maxTokens = 4096): Promise<string> {
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: prompt }];
   const res = await getClient().messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 4096,
+    max_tokens: maxTokens,
     system: systemPrompt ?? 'You are an expert mobile app developer and ASO specialist. Always respond with valid JSON when asked.',
     messages,
   });
@@ -219,27 +219,42 @@ class ${screen} extends StatelessWidget {
   }
 }`).join('\n');
 
+  const ALLOWED_PACKAGES = [
+    'flutter/material.dart',
+    'flutter/cupertino.dart',
+    'google_mobile_ads/google_mobile_ads.dart',
+    'firebase_core/firebase_core.dart',
+    'firebase_remote_config/firebase_remote_config.dart',
+    'in_app_purchase/in_app_purchase.dart',
+    'shared_preferences/shared_preferences.dart',
+    'intl/intl.dart',
+    'dart:io',
+    'dart:async',
+    'dart:convert',
+  ];
+
   const prompt = `Generate a complete Flutter main.dart for "${appName}" app.
-Package: ${packageId}
+Package ID: ${packageId}
 Primary color: ${architecture.theme.primaryColor}
 Font: ${architecture.theme.fontFamily}
 Screens: ${architecture.screens.join(', ')}
 Features: ${architecture.features.join(', ')}
 
-Requirements:
-- 5 screens as StatelessWidget classes
-- MaterialApp with theme using primaryColor ${architecture.theme.primaryColor}
-- Bottom NavigationBar connecting all screens
-- google_mobile_ads integration with test banner ad ID
-- firebase_remote_config import + initialization
-- in_app_purchase import + basic setup
-- shared_preferences import
-- All imports at top
-- void main() with WidgetsFlutterBinding.ensureInitialized()
+STRICT REQUIREMENTS:
+- Use ONLY these imports (no other packages):
+${ALLOWED_PACKAGES.map(p => `  import 'package:${p}';`).join('\n')}
+- 5 screens as StatelessWidget or StatefulWidget classes (all defined in this file)
+- MaterialApp with theme: primaryColor ${architecture.theme.primaryColor}, fontFamily ${architecture.theme.fontFamily}
+- BottomNavigationBar connecting all screens
+- BannerAd with test ID 'ca-app-pub-3940256099942544/6300978111'
+- FirebaseRemoteConfig.instance fetchAndActivate() in initState
+- void main() async with WidgetsFlutterBinding.ensureInitialized() + Firebase.initializeApp() + MobileAds.instance.initialize()
+- ALL screen classes must be fully implemented (no TODO or placeholder)
+- Code must compile without errors
 
-Generate complete, compilable Dart code. Return ONLY the Dart code, no explanation.`;
+Return ONLY the complete Dart code, no explanation, no markdown fences.`;
 
-  const code = await ask(prompt, 'You are an expert Flutter developer. Generate production-quality Dart code.');
+  const code = await ask(prompt, 'You are an expert Flutter developer. Generate complete, compilable Dart code using only the specified packages.', 8192);
   const match = code.match(/```dart\s*([\s\S]+?)```/) ?? code.match(/(import[\s\S]+)/);
   return match ? match[1].trim() : code.trim();
 }
