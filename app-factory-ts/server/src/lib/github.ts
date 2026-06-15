@@ -18,6 +18,7 @@ async function ghFetch<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await res.text();
     throw new Error(`GitHub API ${res.status}: ${body.slice(0, 300)}`);
   }
+  if (res.status === 204 || res.headers.get('content-length') === '0') return {} as T;
   return res.json() as Promise<T>;
 }
 
