@@ -87,38 +87,48 @@ jobs:
 
       - name: Configure signing in build.gradle
         run: |
-          python3 << 'EOF'
+          python3 - << 'PYEOF'
           import re
+
+          # Read key.properties written in the previous step
+          props = {}
+          try:
+              with open('temp_project/android/key.properties') as f:
+                  for line in f:
+                      line = line.strip()
+                      if '=' in line:
+                          k, v = line.split('=', 1)
+                          props[k.strip()] = v.strip()
+          except Exception as e:
+              print(f"Warning: could not read key.properties: {e}")
+
+          alias    = props.get('keyAlias',      'upload')
+          kpass    = props.get('keyPassword',   'debugpass123')
+          spass    = props.get('storePassword', 'debugpass123')
+          keystore = props.get('storeFile',     '/tmp/upload-keystore.jks')
+
+          print(f"Signing config: alias={alias}, storeFile={keystore}")
 
           path = 'temp_project/android/app/build.gradle'
           gradle = open(path).read()
 
-          keystore_block = (
-              "def keystoreProperties = new Properties()\n"
-              "def keystorePropertiesFile = rootProject.file('key.properties')\n"
-              "if (keystorePropertiesFile.exists()) {\n"
-              "    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n"
-              "}\n\n"
-          )
-
           signing_config_block = (
               "    signingConfigs {\n"
               "        release {\n"
-              "            keyAlias keystoreProperties.getProperty('keyAlias', 'upload')\n"
-              "            keyPassword keystoreProperties.getProperty('keyPassword', 'debugpass123')\n"
-              "            storeFile file(keystoreProperties.getProperty('storeFile', '/tmp/upload-keystore.jks'))\n"
-              "            storePassword keystoreProperties.getProperty('storePassword', 'debugpass123')\n"
+              f"            keyAlias '{alias}'\n"
+              f"            keyPassword '{kpass}'\n"
+              f"            storeFile file('{keystore}')\n"
+              f"            storePassword '{spass}'\n"
               "        }\n"
               "    }\n"
           )
 
-          gradle = gradle.replace('android {', keystore_block + 'android {', 1)
           gradle = gradle.replace('    buildTypes {', signing_config_block + '    buildTypes {', 1)
           gradle = re.sub(r'signingConfig\s*=?\s*signingConfigs\.debug', 'signingConfig signingConfigs.release', gradle)
 
           open(path, 'w').write(gradle)
           print("build.gradle patched successfully")
-          EOF
+          PYEOF
 
       - name: Build release AAB
         run: |
