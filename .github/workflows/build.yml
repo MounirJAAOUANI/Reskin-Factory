@@ -62,14 +62,32 @@ jobs:
           flutter pub get
 
       - name: Setup Android keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > /tmp/upload-keystore.jks
-          cat > temp_project/android/key.properties <<EOF
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > /tmp/upload-keystore.jks
+            SPASS="$STORE_PASS"
+            KPASS="$KEY_PASS"
+            ALIAS="$KEY_ALIAS"
+          else
+            keytool -genkey -v -keystore /tmp/upload-keystore.jks \
+              -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=AppFactory,O=AppFactory,C=US" \
+              -storepass debugpass123 -keypass debugpass123 -noprompt
+            SPASS="debugpass123"
+            KPASS="debugpass123"
+            ALIAS="upload"
+          fi
+          cat > temp_project/android/key.properties << KEYEOF
+          storePassword=${SPASS}
+          keyPassword=${KPASS}
+          keyAlias=${ALIAS}
           storeFile=/tmp/upload-keystore.jks
-          EOF
+          KEYEOF
 
       - name: Configure signing in build.gradle
         run: |
@@ -90,21 +108,16 @@ jobs:
           signing_config_block = (
               "    signingConfigs {\n"
               "        release {\n"
-              "            keyAlias keystoreProperties['keyAlias'] ?: 'upload'\n"
-              "            keyPassword keystoreProperties['keyPassword'] ?: ''\n"
+              "            keyAlias keystoreProperties['keyAlias']?.trim()\n"
+              "            keyPassword keystoreProperties['keyPassword']?.trim()\n"
               "            storeFile file('/tmp/upload-keystore.jks')\n"
-              "            storePassword keystoreProperties['storePassword'] ?: ''\n"
+              "            storePassword keystoreProperties['storePassword']?.trim()\n"
               "        }\n"
               "    }\n"
           )
 
-          # Prepend keystore loading before android block
           gradle = gradle.replace('android {', keystore_block + 'android {', 1)
-
-          # Inject signingConfigs before buildTypes
           gradle = gradle.replace('    buildTypes {', signing_config_block + '    buildTypes {', 1)
-
-          # Point release build type at our signingConfig
           gradle = re.sub(r'signingConfig\s*=?\s*signingConfigs\.debug', 'signingConfig signingConfigs.release', gradle)
 
           open(path, 'w').write(gradle)
