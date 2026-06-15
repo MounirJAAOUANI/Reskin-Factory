@@ -17,10 +17,10 @@ function getClient(): Anthropic {
   return client;
 }
 
-async function ask(prompt: string, systemPrompt?: string, maxTokens = 4096): Promise<string> {
+async function ask(prompt: string, systemPrompt?: string, maxTokens = 4096, model = 'claude-haiku-4-5-20251001'): Promise<string> {
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: prompt }];
   const res = await getClient().messages.create({
-    model: 'claude-haiku-4-5-20251001',
+    model,
     max_tokens: maxTokens,
     system: systemPrompt ?? 'You are an expert mobile app developer and ASO specialist. Always respond with valid JSON when asked.',
     messages,
@@ -254,7 +254,7 @@ ${ALLOWED_PACKAGES.map(p => `  import 'package:${p}';`).join('\n')}
 
 Return ONLY the complete Dart code, no explanation, no markdown fences.`;
 
-  const code = await ask(prompt, 'You are an expert Flutter developer. Generate complete, compilable Dart code using only the specified packages.', 8192);
+  const code = await ask(prompt, 'You are an expert Flutter developer. Generate complete, compilable Dart code using only the specified packages.', 16000, 'claude-sonnet-4-6');
   const match = code.match(/```dart\s*([\s\S]+?)```/) ?? code.match(/(import[\s\S]+)/);
   return match ? match[1].trim() : code.trim();
 }
