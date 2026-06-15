@@ -233,28 +233,23 @@ class ${screen} extends StatelessWidget {
     'dart:convert',
   ];
 
-  const prompt = `Generate a complete Flutter main.dart for "${appName}" app.
-Package ID: ${packageId}
-Primary color: ${architecture.theme.primaryColor}
-Font: ${architecture.theme.fontFamily}
-Screens: ${architecture.screens.join(', ')}
-Features: ${architecture.features.join(', ')}
+  const screenNames = architecture.screens.slice(0, 5);
+  const color = architecture.theme.primaryColor.replace('#', '');
 
-STRICT REQUIREMENTS:
-- Use ONLY these imports (no other packages):
-${ALLOWED_PACKAGES.map(p => `  import 'package:${p}';`).join('\n')}
-- 5 screens as StatelessWidget or StatefulWidget classes (all defined in this file)
-- MaterialApp with theme: primaryColor ${architecture.theme.primaryColor}, fontFamily ${architecture.theme.fontFamily}
-- BottomNavigationBar connecting all screens
-- BannerAd with test ID 'ca-app-pub-3940256099942544/6300978111'
-- FirebaseRemoteConfig.instance fetchAndActivate() in initState
-- void main() async with WidgetsFlutterBinding.ensureInitialized() + Firebase.initializeApp() + MobileAds.instance.initialize()
-- ALL screen classes must be fully implemented (no TODO or placeholder)
-- Code must compile without errors
+  const prompt = `Generate a Flutter main.dart for "${appName}" (package: ${packageId}).
+Color: #${color}. Screens: ${screenNames.join(', ')}.
 
-Return ONLY the complete Dart code, no explanation, no markdown fences.`;
+Rules:
+- Imports: ONLY flutter/material.dart, google_mobile_ads/google_mobile_ads.dart, firebase_core/firebase_core.dart, firebase_remote_config/firebase_remote_config.dart, in_app_purchase/in_app_purchase.dart, shared_preferences/shared_preferences.dart, dart:io
+- void main() async: WidgetsFlutterBinding.ensureInitialized(), Firebase.initializeApp(), MobileAds.instance.initialize(), then runApp
+- One StatefulWidget app class with BottomNavigationBar (5 tabs)
+- In initState: fetch FirebaseRemoteConfig, load BannerAd (test ID ca-app-pub-3940256099942544/6300978111)
+- Each screen: StatelessWidget, returns Scaffold with AppBar + body (a ListView with 3-4 relevant ListTile or Card widgets, hardcoded data is fine)
+- Keep each screen body CONCISE — max 30 lines per screen
+- No Icons that don't exist in Flutter material icons
+- Return ONLY valid Dart code, no markdown.`;
 
-  const code = await ask(prompt, 'You are an expert Flutter developer. Generate complete, compilable Dart code using only the specified packages.', 16000, 'claude-sonnet-4-6');
+  const code = await ask(prompt, 'You are a Flutter developer. Write concise, complete, compilable Dart code.', 6000, 'claude-sonnet-4-6');
   const match = code.match(/```dart\s*([\s\S]+?)```/) ?? code.match(/(import[\s\S]+)/);
   return match ? match[1].trim() : code.trim();
 }
