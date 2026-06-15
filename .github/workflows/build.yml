@@ -130,10 +130,16 @@ jobs:
           print("build.gradle patched successfully")
           PYEOF
 
+      - name: Debug - print build.gradle
+        run: |
+          echo "=== build.gradle ===" && cat -n temp_project/android/app/build.gradle
+          echo "=== key.properties ===" && cat -n temp_project/android/key.properties || echo "(not found)"
+          echo "=== keystore exists ===" && ls -la /tmp/upload-keystore.jks || echo "(not found)"
+
       - name: Build release AAB
         run: |
           cd temp_project
-          flutter build appbundle --release
+          flutter build appbundle --release --stacktrace 2>&1 | tail -80
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
