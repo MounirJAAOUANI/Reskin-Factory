@@ -10,26 +10,27 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await MobileAds.instance.initialize();
-  runApp(const HackDailyApp());
+  runApp(const HabitForgeApp());
 }
 
-class HackDailyApp extends StatefulWidget {
-  const HackDailyApp({super.key});
+const Color primaryColor = Color(0xFF6366F1);
+
+class HabitForgeApp extends StatefulWidget {
+  const HabitForgeApp({super.key});
   @override
-  State<HackDailyApp> createState() => _HackDailyAppState();
+  State<HabitForgeApp> createState() => _HabitForgeAppState();
 }
 
-class _HackDailyAppState extends State<HackDailyApp> {
+class _HabitForgeAppState extends State<HabitForgeApp> {
   int _currentIndex = 0;
   BannerAd? _bannerAd;
-  bool _bannerAdLoaded = false;
-  final Color primaryColor = const Color(0xFFFF6B35);
+  bool _bannerLoaded = false;
 
   final List<Widget> _screens = const [
-    HomeScreen(),
-    CategoriesScreen(),
-    HackDetailScreen(),
-    SavedHacksScreen(),
+    OnboardingScreen(),
+    DashboardScreen(),
+    HabitCreationScreen(),
+    ProgressTrackingScreen(),
     SettingsScreen(),
   ];
 
@@ -57,7 +58,7 @@ class _HackDailyAppState extends State<HackDailyApp> {
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(
-        onAdLoaded: (_) => setState(() => _bannerAdLoaded = true),
+        onAdLoaded: (_) => setState(() => _bannerLoaded = true),
         onAdFailedToLoad: (ad, __) => ad.dispose(),
       ),
     )..load();
@@ -72,11 +73,11 @@ class _HackDailyAppState extends State<HackDailyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'HackDaily',
+      title: 'HabitForge',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: primaryColor),
         useMaterial3: true,
-        appBarTheme: AppBarTheme(
+        appBarTheme: const AppBarTheme(
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
         ),
@@ -86,7 +87,7 @@ class _HackDailyAppState extends State<HackDailyApp> {
         bottomNavigationBar: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_bannerAdLoaded && _bannerAd != null)
+            if (_bannerLoaded && _bannerAd != null)
               SizedBox(
                 height: _bannerAd!.size.height.toDouble(),
                 width: _bannerAd!.size.width.toDouble(),
@@ -99,10 +100,10 @@ class _HackDailyAppState extends State<HackDailyApp> {
               type: BottomNavigationBarType.fixed,
               onTap: (index) => setState(() => _currentIndex = index),
               items: const [
-                BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-                BottomNavigationBarItem(icon: Icon(Icons.category), label: 'Categories'),
-                BottomNavigationBarItem(icon: Icon(Icons.lightbulb), label: 'Detail'),
-                BottomNavigationBarItem(icon: Icon(Icons.bookmark), label: 'Saved'),
+                BottomNavigationBarItem(icon: Icon(Icons.start), label: 'Onboarding'),
+                BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
+                BottomNavigationBarItem(icon: Icon(Icons.add_circle), label: 'Create'),
+                BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Progress'),
                 BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
               ],
             ),
@@ -113,117 +114,84 @@ class _HackDailyAppState extends State<HackDailyApp> {
   }
 }
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    final hacks = [
-      {'title': 'Boost Your Morning Routine', 'subtitle': 'Start your day with a 5-minute stretch'},
-      {'title': 'Deep Work Technique', 'subtitle': 'Work in 90-minute focused blocks'},
-      {'title': 'Sleep Optimization', 'subtitle': 'Keep room temperature at 65°F for best sleep'},
-      {'title': 'Hydration Hack', 'subtitle': 'Drink water before every meal to reduce hunger'},
-    ];
-    return Scaffold(
-      appBar: AppBar(title: const Text('HackDaily'), centerTitle: true),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(8),
-        itemCount: hacks.length,
-        itemBuilder: (context, index) => Card(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          child: ListTile(
-            leading: const Icon(Icons.tips_and_updates, color: Color(0xFFFF6B35)),
-            title: Text(hacks[index]['title']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text(hacks[index]['subtitle']!),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class CategoriesScreen extends StatelessWidget {
-  const CategoriesScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    final categories = [
-      {'name': 'Productivity', 'icon': Icons.speed},
-      {'name': 'Health & Fitness', 'icon': Icons.fitness_center},
-      {'name': 'Finance', 'icon': Icons.attach_money},
-      {'name': 'Technology', 'icon': Icons.devices},
-    ];
-    return Scaffold(
-      appBar: AppBar(title: const Text('Categories'), centerTitle: true),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(8),
-        itemCount: categories.length,
-        itemBuilder: (context, index) => Card(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          child: ListTile(
-            leading: Icon(categories[index]['icon'] as IconData, color: const Color(0xFFFF6B35)),
-            title: Text(categories[index]['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
-            trailing: const Icon(Icons.chevron_right),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class HackDetailScreen extends StatelessWidget {
-  const HackDetailScreen({super.key});
+class OnboardingScreen extends StatelessWidget {
+  const OnboardingScreen({super.key});
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Hack Detail'), centerTitle: true),
+      appBar: AppBar(title: const Text('Welcome to HabitForge')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: const [
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Deep Work Technique', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
-                  Text('Work in 90-minute focused blocks with no distractions to maximize productivity and cognitive output.'),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(height: 8),
-          ListTile(leading: Icon(Icons.check_circle, color: Color(0xFFFF6B35)), title: Text('Turn off notifications')),
-          ListTile(leading: Icon(Icons.check_circle, color: Color(0xFFFF6B35)), title: Text('Use a timer for 90 minutes')),
-          ListTile(leading: Icon(Icons.check_circle, color: Color(0xFFFF6B35)), title: Text('Take a 20-minute break after')),
+          Card(child: ListTile(leading: Icon(Icons.flag, color: primaryColor), title: Text('Set Your Goals'), subtitle: Text('Define what you want to achieve daily.'))),
+          Card(child: ListTile(leading: Icon(Icons.track_changes, color: primaryColor), title: Text('Track Progress'), subtitle: Text('Monitor your streaks and milestones.'))),
+          Card(child: ListTile(leading: Icon(Icons.notifications_active, color: primaryColor), title: Text('Stay Reminded'), subtitle: Text('Get timely nudges to keep going.'))),
+          Card(child: ListTile(leading: Icon(Icons.emoji_events, color: primaryColor), title: Text('Earn Rewards'), subtitle: Text('Unlock badges as you build habits.'))),
         ],
       ),
     );
   }
 }
 
-class SavedHacksScreen extends StatelessWidget {
-  const SavedHacksScreen({super.key});
+class DashboardScreen extends StatelessWidget {
+  const DashboardScreen({super.key});
   @override
   Widget build(BuildContext context) {
-    final saved = [
-      'Boost Your Morning Routine',
-      'Sleep Optimization',
-      'The 2-Minute Rule',
-    ];
     return Scaffold(
-      appBar: AppBar(title: const Text('Saved Hacks'), centerTitle: true),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(8),
-        itemCount: saved.length,
-        itemBuilder: (context, index) => Card(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          child: ListTile(
-            leading: const Icon(Icons.bookmark, color: Color(0xFFFF6B35)),
-            title: Text(saved[index], style: const TextStyle(fontWeight: FontWeight.bold)),
-            trailing: const Icon(Icons.delete_outline, color: Colors.redAccent),
+      appBar: AppBar(title: const Text('Dashboard')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: const [
+          Card(child: ListTile(leading: Icon(Icons.local_fire_department, color: primaryColor), title: Text('Current Streak'), subtitle: Text('7 days in a row!'))),
+          Card(child: ListTile(leading: Icon(Icons.check_circle, color: primaryColor), title: Text('Today\'s Habits'), subtitle: Text('3 of 5 completed'))),
+          Card(child: ListTile(leading: Icon(Icons.star, color: primaryColor), title: Text('Top Habit'), subtitle: Text('Morning Meditation - 14 days'))),
+          Card(child: ListTile(leading: Icon(Icons.insights, color: primaryColor), title: Text('Weekly Summary'), subtitle: Text('85% completion rate this week'))),
+        ],
+      ),
+    );
+  }
+}
+
+class HabitCreationScreen extends StatelessWidget {
+  const HabitCreationScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Create Habit')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Card(child: ListTile(leading: Icon(Icons.edit, color: primaryColor), title: Text('Habit Name'), subtitle: Text('e.g. Morning Run, Read 20 Pages'))),
+          const Card(child: ListTile(leading: Icon(Icons.repeat, color: primaryColor), title: Text('Frequency'), subtitle: Text('Daily / Weekly / Custom'))),
+          const Card(child: ListTile(leading: Icon(Icons.alarm, color: primaryColor), title: Text('Reminder Time'), subtitle: Text('Set a daily reminder at 7:00 AM'))),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white),
+              onPressed: () {},
+              child: const Text('Save Habit'),
+            ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+class ProgressTrackingScreen extends StatelessWidget {
+  const ProgressTrackingScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Progress Tracking')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: const [
+          Card(child: ListTile(leading: Icon(Icons.bar_chart, color: primaryColor), title: Text('Monthly Overview'), subtitle: Text('Completed 22 out of 30 days'))),
+          Card(child: ListTile(leading: Icon(Icons.trending_up, color: primaryColor), title: Text('Best Streak'), subtitle: Text('14 consecutive days - Reading'))),
+          Card(child: ListTile(leading: Icon(Icons.pie_chart, color: primaryColor), title: Text('Category Breakdown'), subtitle: Text('Health 40%, Learning 35%, Mindfulness 25%'))),
+          Card(child: ListTile(leading: Icon(Icons.workspace_premium, color: primaryColor), title: Text('Badges Earned'), subtitle: Text('5 badges unlocked this month'))),
+        ],
       ),
     );
   }
@@ -234,14 +202,14 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings'), centerTitle: true),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(16),
         children: const [
-          ListTile(leading: Icon(Icons.notifications, color: Color(0xFFFF6B35)), title: Text('Notifications'), trailing: Icon(Icons.chevron_right)),
-          ListTile(leading: Icon(Icons.dark_mode, color: Color(0xFFFF6B35)), title: Text('Dark Mode'), trailing: Icon(Icons.chevron_right)),
-          ListTile(leading: Icon(Icons.star, color: Color(0xFFFF6B35)), title: Text('Rate Us'), trailing: Icon(Icons.chevron_right)),
-          ListTile(leading: Icon(Icons.info, color: Color(0xFFFF6B35)), title: Text('About'), trailing: Icon(Icons.chevron_right)),
+          Card(child: ListTile(leading: Icon(Icons.person, color: primaryColor), title: Text('Profile'), subtitle: Text('Manage your account details'))),
+          Card(child: ListTile(leading: Icon(Icons.notifications, color: primaryColor), title: Text('Notifications'), subtitle: Text('Customize reminder preferences'))),
+          Card(child: ListTile(leading: Icon(Icons.lock, color: primaryColor), title: Text('Privacy'), subtitle: Text('Control your data and permissions'))),
+          Card(child: ListTile(leading: Icon(Icons.shopping_cart, color: primaryColor), title: Text('Upgrade to Pro'), subtitle: Text('Unlock unlimited habits and analytics'))),
         ],
       ),
     );
